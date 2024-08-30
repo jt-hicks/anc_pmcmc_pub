@@ -1,0 +1,17 @@
+repo::https://mrc-ide.r-universe.dev
+dplyr
+statmod
+coda
+zoo
+lubridate
+stringi
+dde
+RecordLinkage
+parallel
+future
+furrr
+odin
+dust
+odin.dust
+mcstate
+github::jt-hicks/mamasante
