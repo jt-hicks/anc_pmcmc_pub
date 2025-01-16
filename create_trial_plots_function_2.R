@@ -1,4 +1,4 @@
-create_dashboard_plots_trial <- function(results,
+create_dashboard_plots_trial_2 <- function(results,
                                          observed,
                                          rainfall=NULL,
                                          prev_all=NULL,
@@ -41,6 +41,9 @@ create_dashboard_plots_trial <- function(results,
   }
   colors <-c(viridis::viridis(6,begin=0,end=0.85))
   names(colors) <- c('Gambia','Mali','Burkina Faso','Ghana','Malawi','Kenya')
+  twolevels <- c(colors, lighten(colors,0.5))
+  names(twolevels) <- c(paste0('prev_pg-',names(colors)),paste0('prev_mg-',names(colors)))
+
   if(single_site & length(results)>1){
     results <- list(results)
   }
@@ -96,8 +99,11 @@ create_dashboard_plots_trial <- function(results,
   results_sample <- shift_trial_dates(results_sample,single_site)
 
   results_summary$country <- factor(results_summary$country,levels=c('Gambia','Mali','Burkina Faso','Ghana','Malawi','Kenya'))
+  results_summary$twolevels <- paste0(results_summary$measure,'-',results_summary$country)
   results_sample$country <- factor(results_sample$country,levels=c('Gambia','Mali','Burkina Faso','Ghana','Malawi','Kenya'))
+  results_sample$twolevels <- paste0(results_sample$measure,'-',results_sample$country)
   observed_cis$country <- factor(observed_cis$country,levels=c('Gambia','Mali','Burkina Faso','Ghana','Malawi','Kenya'))
+  observed_cis$twolevels <- paste0(observed_cis$measure,'-',observed_cis$country)
   y_axis_label <- NULL
   if(var=='prev_anc'){
     observed_cis$measure <- factor(observed_cis$measure, levels=c('prev_pg','prev_mg'))
@@ -123,16 +129,16 @@ create_dashboard_plots_trial <- function(results,
   }
   if(show_fits){
     plot_base <- plot_base+
-      geom_line(data=results_sample,aes(x=as.Date(date_aligned),y=value*multiplier,color=country,group=variable),alpha=0.1,linewidth=0.2)+
-      geom_line(data=results_summary,aes(x=as.Date(date_aligned),y=median*multiplier,color=country,group=country),linewidth=0.8)
+      # geom_line(data=results_sample,aes(x=as.Date(date_aligned),y=value*multiplier,color=country,group=variable),alpha=0.1,linewidth=0.2)+
+      geom_line(data=results_summary,aes(x=as.Date(date_aligned),y=median*multiplier,color=twolevels,group=twolevels),linewidth=0.8)
   }
 
   plot <- plot_base+
-    geom_point(data=observed_cis,aes(x=as.Date(date_aligned),y=mean*multiplier,color=country,group=country),pch = 19,position=position_dodge(width=10),size=0.5)+
-    geom_errorbar(data=observed_cis,aes(x=as.Date(date_aligned),ymin=lower*multiplier,ymax=upper*multiplier,color=country,group=country),width = 0,position=position_dodge(width=10),linewidth=0.5)+
-    scale_color_manual(values=colors)+
+    geom_point(data=observed_cis,aes(x=as.Date(date_aligned),y=mean*multiplier,color=twolevels,group=twolevels),pch = 19,position=position_dodge(width=10),size=0.5)+
+    geom_errorbar(data=observed_cis,aes(x=as.Date(date_aligned),ymin=lower*multiplier,ymax=upper*multiplier,color=twolevels,group=twolevels),width = 0,position=position_dodge(width=10),linewidth=0.5)+
+    scale_color_manual(values=twolevels)+
     scale_x_date(date_labels = "%b", date_breaks = '3 months')+
-    scale_y_continuous(expand=c(0,0),breaks = c(0,5,10,15,20))+
+    scale_y_continuous(expand=c(0,0),breaks=c(0,0.25,0.5,0.75))+
     coord_cartesian(ylim = c(0,max_value),
                     xlim = range(results_summary$date_aligned))+
     labs(title = title,
@@ -153,7 +159,7 @@ create_dashboard_plots_trial <- function(results,
   if(!single_site){
     plot <- plot +
       geom_vline(data=smc_times,aes(xintercept=smc_times),linetype='dashed',color='black',linewidth=0.5)+
-      facet_grid(country~measure,scales=facet_scales,labeller = labeller(country = country_labels, measure=measure_labels))
+      facet_grid(country~.,scales=facet_scales,labeller = labeller(country = country_labels, measure=measure_labels))
   }
   return(plot)
 }

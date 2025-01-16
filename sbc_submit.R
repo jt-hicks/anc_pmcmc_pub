@@ -1,7 +1,7 @@
 source('utils.R')
 source('submit_sbc.R')
 
-obj_sbc <- cluster_setup(context_name = 'sbc',template='20Core', cores=10)
+# obj_sbc <- cluster_setup(context_name = 'sbc',template='20Core', cores=10)
 
 +install.packages("didehpc")
 test <- sbc_submit(sim_dataset)
@@ -121,29 +121,7 @@ sim50_runs <- obj_sbc$enqueue_bulk(31:50,function(x,data){
 },data=sim_dataset_100)
 sim50_runs$status() #sticky_agouti
 
-sim_seasonal_run <- obj_sbc$enqueue_bulk(1,function(x,data){
-  sifter::run_pmcmc(data_raw=data,
-                    init_EIR = 100,
-                    n_particles=200,
-                    proposal_matrix = diag(0.5,2),
-                    max_param=125,
-                    prop_treated = 0.4,
-                    n_steps = 1000,
-                    n_threads = 8,
-                    n_chains = 1,
-                    n_workers = 1,
-                    state_check = 0,## Run equilibrium checks
-                    seasonality_on = FALSE,  ## state_check = TRUE runs a deterministic seasonal model before running the stochastic model to get more realistic immunity levels
-                    seasonality_check = FALSE,##If TRUE, saves values of seasonality equilibrium
-                    seed = 1L,
-                    start_pf_time = 30,
-                    particle_tune = FALSE,
-                    comparison = 'u5',
-                    initial = 'fitted')
-},data=four_years)
-sim_seasonal_run$status() #foolish_arrowworm
-sim_seasonal_run_result <- sim_seasonal_run$tasks[[1]]$result()
-sim_seasonal_run_result <- readRDS('T:/jth/sbc/db/data/790c9c8250091785442fa3c18f0fb266.rds')
+
 sim_seasonal_result()
 sim_seasonal_run_result
 ar <- as.data.frame(t(1 - coda::rejectionRate(as.mcmc(sim_seasonal_run_result$mcmc))))

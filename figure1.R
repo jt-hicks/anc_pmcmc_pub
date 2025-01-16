@@ -1,8 +1,14 @@
+#Figure 1
 library(lubridate)
 library(dplyr)
 library(tidyr)
+library("colorspace")
+library(scales)
+library(patchwork)
+
 devtools::install_github("jt-hicks/mamasante")
 
+source('utils.R')
 theme_set(theme_minimal(base_size = 7)+
             theme(panel.grid.major = element_blank(),
                   panel.grid.minor = element_blank(),
@@ -72,9 +78,6 @@ mod_run <- mod$run(tt, step_max_n = 1e7,
 # shape output
 out <- mod$transform_variables(mod_run)
 
-# plot data and generate data
-# plot(out$t,out$betaa_out,type='l',col="red",ylim=c(0,125))
-# lines(out$t,out$prev*100,col="blue",lwd=4)
 out_df <- data.frame(t=out$t,
                      prev05=out$prev05,
                      date=as.character(seq.Date(from = as.Date('2015-01-01'),by = 'day',length.out = length(tt))),
@@ -94,6 +97,7 @@ monthly_data$positive<-rbinom(nrow(monthly_data),monthly_data$tested,monthly_dat
 monthly_data$month <- zoo::as.yearmon(monthly_data$date)
 if(any(monthly_data$positive>monthly_data$tested)) {stop('Number of positive is greater than number tested')}
 
+##Check simulated data output
 ggplot(monthly_data)+
   geom_line(aes(x=month,y=inc_all_true))+
   coord_cartesian(ylim = c(0,NA))
@@ -104,6 +108,7 @@ ggplot(monthly_data)+
   geom_line(aes(x=month,y=mv))+
   coord_cartesian(ylim = c(0,NA))
 
+##Format data set to keep only 4 years
 four_years <- monthly_data[c((16*12+1):(20*12)),]%>%
   mutate(date = ymd(date) - years(10),
          month = month - 10)
@@ -114,19 +119,45 @@ all_dates <- four_years %>%
 four_years_byday <- four_years %>%
   select(date,month,betaa_true)%>%
   right_join(all_dates,by='month')
+
+##Fit model to four years of the simulated data
+obj_sbc <- cluster_setup(context_name = 'sbc',template='20Core', cores=10) #Set up cluster (old version)
+sim_seasonal_run <- obj_sbc$enqueue_bulk(1,function(x,data){
+  sifter::run_pmcmc(data_raw=data,
+                    init_EIR = 100,
+                    n_particles=200,
+                    proposal_matrix = diag(0.5,2),
+                    max_param=125,
+                    prop_treated = 0.4,
+                    n_steps = 1000,
+                    n_threads = 8,
+                    n_chains = 1,
+                    n_workers = 1,
+                    state_check = 0,## Run equilibrium checks
+                    seasonality_on = FALSE,  ## state_check = TRUE runs a deterministic seasonal model before running the stochastic model to get more realistic immunity levels
+                    seasonality_check = FALSE,##If TRUE, saves values of seasonality equilibrium
+                    seed = 1L,
+                    start_pf_time = 30,
+                    particle_tune = FALSE,
+                    comparison = 'u5',
+                    initial = 'fitted')
+},data=four_years)
+sim_seasonal_run$status() #foolish_arrowworm
+sim_seasonal_run_result <- sim_seasonal_run$tasks[[1]]$result() #Extract result from cluster
+sim_seasonal_run_result <- readRDS('T:/jth/sbc/db/data/790c9c8250091785442fa3c18f0fb266.rds') #Find saved version
+saveRDS(sim_seasonal_run_result,'Y:/jth/anc_pmcmc_pub/sim_seasonal_run_result.rds') #Save in a more convenient location
+
+##Format results for plotting
 sim_seasonal_hist4plots <- sim_history4plots(sim_seasonal_run_result,sim_data=four_years,burnin = 0.2)
 four_years_cis <- addCIs(four_years,Ys=four_years$positive,Ns=four_years$tested)
 
-library("colorspace")
-test_palette <- viridis::viridis(4,begin=0,end=0.4)
-show_col(test_palette)
-show_col(c(test_palette,lighten(test_palette,0.3)),ncol=4)
-show_col(viridis::mako(12,begin=0,end=1))
-
+##Generate color palette
 true_palette <- viridis::viridis(4,begin=0.1,end=0.35)
 part_palette <- lighten(true_palette,0.4)
 show_col(c(true_palette,part_palette),ncol=4)
 alpha_var <-0.1
+
+#Plot mosquito emergence with model fits
 betaa_plot <- ggplot(four_years_byday)+
   geom_line(data=sim_seasonal_hist4plots$betaa_sample,aes(x=date,y=value,group=variable),alpha=alpha_var,color=part_palette[1])+
   geom_line(aes(x=date.y,y=betaa_true),color=true_palette[1])+
@@ -138,6 +169,7 @@ betaa_plot <- ggplot(four_years_byday)+
   theme(axis.title.x = element_blank(),
         axis.text.x=element_text(angle=45, hjust=1, vjust=1))
 
+#Plot mosquito emergence true values (for presentations)
 betaa_truth_plot <- ggplot(four_years_byday)+
   geom_line(data=sim_seasonal_hist4plots$betaa_sample,aes(x=date,y=value,group=variable),alpha=0,color=part_palette[1])+
   geom_line(aes(x=date.y,y=betaa_true),color=true_palette[1])+
@@ -147,6 +179,8 @@ betaa_truth_plot <- ggplot(four_years_byday)+
   scale_y_continuous(expand = expansion(mult = c(0, .05)))+
   theme(axis.title.x = element_blank(),
         axis.text.x=element_text(angle=45, hjust=1, vjust=1))
+
+#Plot EIR with model fits
 eir_plot <- ggplot(four_years)+
   geom_line(data=sim_seasonal_hist4plots$EIR_sample,aes(x=date,y=value,group=variable),alpha=alpha_var,color=part_palette[2])+
   geom_line(aes(x=date,y=EIR_true),color=true_palette[2])+
@@ -157,6 +191,8 @@ eir_plot <- ggplot(four_years)+
   scale_y_continuous(expand = expansion(mult = c(0, .05)))+
   theme(axis.title.x = element_blank(),
         axis.text.x=element_text(angle=45, hjust=1, vjust=1))
+
+#Plot only true EIR values
 eir_truth_plot <- ggplot(four_years)+
   geom_line(data=sim_seasonal_hist4plots$EIR_sample,aes(x=date,y=value,group=variable),alpha=0,color=part_palette[2])+
   geom_line(aes(x=date,y=EIR_true),color=true_palette[2])+
@@ -167,6 +203,7 @@ eir_truth_plot <- ggplot(four_years)+
   theme(axis.title.x = element_blank(),
         axis.text.x=element_text(angle=45, hjust=1, vjust=1))
 
+#Plot clinical cases with model fits
 incidence_plot <- ggplot(four_years)+
   geom_line(data=sim_seasonal_hist4plots$inc_sample,aes(x=date,y=value*1000,group=variable),alpha=alpha_var,color=part_palette[3])+
   geom_line(aes(x=date,y=inc_all_true*1000),color=true_palette[3])+
@@ -177,6 +214,8 @@ incidence_plot <- ggplot(four_years)+
   scale_y_continuous(expand = expansion(mult = c(0, .05)))+
   theme(axis.title.x = element_blank(),
         axis.text.x=element_text(angle=45, hjust=1, vjust=1))
+
+#Plot only true clinical incidence values
 incidence_truth_plot <- ggplot(four_years)+
   geom_line(data=sim_seasonal_hist4plots$inc_sample,aes(x=date,y=value*1000,group=variable),alpha=0,color=part_palette[3])+
   geom_line(aes(x=date,y=inc_all_true*1000),color=true_palette[3])+
@@ -186,6 +225,8 @@ incidence_truth_plot <- ggplot(four_years)+
   scale_y_continuous(expand = expansion(mult = c(0, .05)))+
   theme(axis.title.x = element_blank(),
         axis.text.x=element_text(angle=45, hjust=1, vjust=1))
+
+#Plot under 5 prevalence values with model fits
 prev05_plot <- ggplot(four_years)+
   geom_line(data=sim_seasonal_hist4plots$prev_sample,aes(x=date,y=value,group=variable),alpha=alpha_var,color=part_palette[4])+
   geom_line(aes(x=date,y=prev05),color=true_palette[4])+
@@ -196,6 +237,8 @@ prev05_plot <- ggplot(four_years)+
   scale_y_continuous(expand = expansion(mult = c(0, .05)))+
   theme(axis.title.x = element_blank(),
         axis.text.x=element_text(angle=45, hjust=1, vjust=1))
+
+#Plot only true prevalence values
 prev05_truth_plot <- ggplot(four_years_cis)+
   geom_line(data=sim_seasonal_hist4plots$prev_sample,aes(x=date,y=value,group=variable),alpha=0,color=part_palette[4])+
   geom_line(aes(x=date,y=mean),color=true_palette[4])+
@@ -206,6 +249,8 @@ prev05_truth_plot <- ggplot(four_years_cis)+
   scale_y_continuous(expand = expansion(mult = c(0, .05)))+
   theme(axis.title.x = element_blank(),
         axis.text.x=element_text(angle=45, hjust=1, vjust=1))
+
+#Plot only prevalence data points
 prev05_data_only_plot <- ggplot(four_years_cis)+
   geom_line(data=sim_seasonal_hist4plots$prev_sample,aes(x=date,y=value,group=variable),alpha=0,color=part_palette[4])+
   geom_point(aes(x=date,y=mean),color=true_palette[4])+
@@ -216,6 +261,8 @@ prev05_data_only_plot <- ggplot(four_years_cis)+
   scale_y_continuous(expand = expansion(mult = c(0, .05)))+
   theme(axis.title.x = element_blank(),
         axis.text.x=element_text(angle=45, hjust=1, vjust=1))
+
+#Plot prevalence data points with model fits
 prev05_data_plot <- ggplot(four_years_cis)+
   geom_line(data=sim_seasonal_hist4plots$prev_sample,aes(x=date,y=value,group=variable),alpha=alpha_var,color=part_palette[4])+
   geom_line(data=sim_seasonal_hist4plots$prev_history,aes(x=date,y=prev.median),linetype='dashed',color=true_palette[4])+
@@ -228,31 +275,11 @@ prev05_data_plot <- ggplot(four_years_cis)+
   theme(axis.title.x = element_blank(),
         axis.text.x=element_text(angle=45, hjust=1, vjust=1))
 
-moz_plot <- ggplot(four_years)+
-  geom_line(data=sim_seasonal_hist4plots$mv_sample,aes(x=date,y=value,group=variable),alpha=0.5,color='lightgrey')+
-  geom_line(aes(x=date,y=mv))+
-  geom_line(data=sim_seasonal_hist4plots$mv_history,aes(x=date,y=mv.median),linetype='dashed')+
-  coord_cartesian(ylim = c(0,NA))+
-  scale_x_date(date_labels = "%b",date_breaks = '4 months',expand = c(0,NA))+
-  scale_y_continuous(expand = expansion(mult = c(0, .05)))+
-  theme(axis.title.x = element_blank(),
-        axis.text.x=element_text(angle=45, hjust=1, vjust=1))
-
 windows(15,6.5)
 truth <- betaa_truth_plot + eir_truth_plot + incidence_truth_plot + prev05_truth_plot + plot_layout(nrow=1)
 observed <- betaa_truth_plot + eir_truth_plot + incidence_truth_plot + prev05_data_only_plot + plot_layout(nrow=1,ncol=4)
 estimates <- betaa_plot + eir_plot + incidence_plot + prev05_data_plot + plot_layout(nrow=1)
-ggsave('true_sim_demo_7.tiff',plot = truth,units = 'cm',width = 6,height=12,dpi=300)
-ggsave('true_sim_demo_wide_7.tiff',plot = truth,units = 'cm',width = 17,height=4,dpi=300)
-ggsave('estimate_sim_demo_wide_7.tiff',plot = estimates,units = 'cm',width = 17,height=4,dpi=300)
-ggsave('observed_sim_demo_wide_7.tiff',plot = observed,units = 'cm',width = 17,height=4,dpi=300)
-regr_test_df <- cars
-str(cars)
-str(datasets::iris)
-lm(Species~.,data=iris)
-
-names(sim_seasonal_run_result$history[,1,1])
-
-results <- sim_seasonal_run_result
-sim_data <- four_years
+ggsave('./figures/Fig1_true_sim_demo_wide_7.tiff',plot = truth,units = 'cm',width = 17,height=4,dpi=300)
+ggsave('./figures/Fig1_estimate_sim_demo_wide_7.tiff',plot = estimates,units = 'cm',width = 17,height=4,dpi=300)
+ggsave('./figures/Fig1_observed_sim_demo_wide_7.tiff',plot = observed,units = 'cm',width = 17,height=4,dpi=300)
 

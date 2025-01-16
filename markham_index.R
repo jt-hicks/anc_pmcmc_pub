@@ -7,7 +7,7 @@ theme_set(theme_minimal(base_size = 8)+
                   panel.grid.major = element_blank(),
                   panel.grid.minor = element_blank(),
                   strip.background = element_blank(),
-                  axis.title.x = element_text(size=6,margin = margin(t = -2)),
+                  axis.title.x = element_text(size=6,margin = margin(t = -1)),
                   axis.title.y = element_text(size=6),
                   panel.border = element_rect(colour = "black",fill=NA),
                   legend.position = 'bottom',
@@ -18,6 +18,22 @@ theme_set(theme_minimal(base_size = 8)+
                   legend.text = element_text(size=7,margin=margin(0,0,0,0)),
                   plot.margin = margin(t=4,l=4,r=0,b=0))
           )
+theme_set(theme_minimal(base_size = 8)+
+            theme(text = element_text(size=6),
+                  panel.grid.major = element_blank(),
+                  panel.grid.minor = element_blank(),
+                  strip.background = element_blank(),
+                  axis.title.x = element_text(size=6,margin = margin(t = -2)),
+                  axis.title.y = element_text(size=6),
+                  panel.border = element_rect(colour = "black",fill=NA),
+                  legend.position = 'bottom',
+                  legend.box.spacing = unit(0,'pt'),
+                  legend.key.spacing.y = unit(-8, 'pt'),
+                  legend.margin = margin(t=0,r=0,b=0,l=0),
+                  legend.box.margin = margin(t=0,r=0,b=0,l=0),
+                  legend.text = element_text(size=7,margin=margin(0,0,0,0)),
+                  plot.margin = margin(t=4,l=4,r=0,b=0))
+)
 
 #Markhan Seasonality Index
 month_arc <- data.frame(date = seq.Date(from=as.Date('2010-01-01'),to=as.Date('2010-12-31'),by='days'),
@@ -165,12 +181,13 @@ incidence <- trials_short_informed_sample[trials_short_informed_sample$measure==
 ##Gambia incidence to plot Gambia time series
 gambia_incidence <- incidence[incidence$country=='Gambia',]
 
-trial_color_palette <- c(viridis::viridis(6,begin=0,end=0.95))
+trial_color_palette <- c(viridis::viridis(6,begin=0,end=0.85))
+
 
 show_col(trial_color_palette)
 ,'#8D5B4CFF'
-names(trial_color_palette) <-  c('Ghana','Burkina Faso', 'Mali', 'Gambia','Malawi','Kenya')
-labels_trial_colors <- c('Ghana','Burkina Faso', 'Mali', 'The Gambia','Malawi','Kenya')
+names(trial_color_palette) <-  c('Gambia','Mali','Burkina Faso','Ghana','Malawi','Kenya')
+labels_trial_colors <- c('The Gambia','Mali','Burkina Faso','Ghana','Malawi','Kenya')
 names(labels_trial_colors) <- names(trial_color_palette)
 
 sample_msi_list <- incidence %>%
@@ -211,12 +228,13 @@ msi_plot <- ggplot(msi_both)+
   scale_color_manual(name='Country',values=trial_color_palette,labels=labels_trial_colors,breaks=names(trial_color_palette))+
   scale_x_continuous(limits = c(0,1))+
   scale_y_continuous(limits = c(0,1))+
-  labs(x='Observed Incidence* MSI',y='Estimated Incidence MSI')+
+  labs(x='Observed Seasonality',y='Model Seasonality')+
+  # labs(x='Observed Incidence* MSI',y='Estimated Incidence MSI')+
   theme(legend.title = element_blank(),
         legend.position = 'none')
 ggsave('./trial_figs/output/msi_final_plot.tiff',plot=msi_plot,width=3.5,height=3.5,units='in')
 date_breaks <- seq.Date(from=as.Date('2009-12-15'),as.Date('2010-12-15'),by='month')
-date_labels <- c('No\nPeak','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec')
+date_labels <- c('No Peak','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec')
 msi_angle_plot <- ggplot(msi_both)+
   annotate("rect", xmin = as.Date('2009-12-01'), xmax = as.Date('2009-12-31'), ymin = as.Date('2009-12-01'), ymax = as.Date('2010-12-15'),alpha = .4,fill = '#C3A995FF')+
   annotate("rect", ymin = as.Date('2009-12-01'), ymax = as.Date('2009-12-31'), xmin = as.Date('2009-12-01'), xmax = as.Date('2010-12-15'),alpha = .4,fill = '#C3A995FF')+
@@ -227,9 +245,10 @@ msi_angle_plot <- ggplot(msi_both)+
   scale_color_manual(name='Country',values=trial_color_palette,labels=labels_trial_colors,breaks=names(trial_color_palette))+
   scale_x_date(limits = as.Date(c('2009-12-01','2010-12-15')),labels = date_labels,breaks = date_breaks)+
   scale_y_date(limits = as.Date(c('2009-12-01','2010-12-15')),labels = date_labels,breaks = date_breaks)+
-  labs(x='Observed Incidence* Peak',y='Estimated Incidence Peak')+
+  labs(x='Observed Incidence Peak',y='Estimated Incidence Peak')+
   theme(legend.title = element_blank(),
-        legend.position = 'none')
+        legend.position = 'none',
+        axis.text.x = element_text(angle = 45,vjust=1,hjust=1))
 ggsave('./trial_figs/output/peak_plot_final.tiff',plot=msi_angle_plot,width=3.5,height=3.5,units='in')
 ggsave('./trial_figs/output/peak_plot_labeled.tiff',plot=msi_angle_plot,width=7,height=7,units='in')
 
@@ -350,7 +369,8 @@ msi_rain_plot <- ggplot(msi_both_rain)+
   scale_color_manual(name='Country',values=trial_color_palette,labels=labels_trial_colors,breaks=names(trial_color_palette))+
   scale_x_continuous(limits = c(0,1))+
   scale_y_continuous(limits = c(0,1))+
-  labs(x='Rainfall MSI',y='Estimated Incidence MSI')+
+  # labs(x='Rainfall MSI',y='Estimated Incidence MSI')+
+  labs(x='Rainfall Seasonality',y='Model Seasonality')+
   theme(legend.title = element_blank(),
         legend.position = 'none')
 ggsave('./trial_figs/output/msi_rain_plot.tiff',plot=msi_rain_plot,width=3.5,height=3.5,units='in')
@@ -367,14 +387,20 @@ msi_angle_rain_plot <- ggplot(msi_both_rain)+
   scale_y_date(limits = as.Date(c('2009-12-01','2010-12-15')),labels = date_labels,breaks = date_breaks)+
   labs(x='Rainfall Peak',y='Estimated Incidence Peak')+
   theme(legend.title=element_blank(),
-        legend.position = 'none')
+        legend.position = 'none',
+        axis.text.x = element_text(angle = 45,vjust=1,hjust=1))
 ggsave('./trial_figs/output/peak_plot_rainfall.tiff',plot=msi_angle_rain_plot,width=3.5,height=3.5,units='in')
 msi_plots_combo <- msi_plot + msi_angle_plot + msi_rain_plot + msi_angle_rain_plot + plot_layout(ncol = 2, guides = 'collect')
+msi_plots_norain <- msi_plot + msi_angle_plot  + plot_layout(nrow = 2, guides = 'collect')
+
 ggsave('./trial_figs/output/msi_rain_combos.tiff',plot=msi_plots_combo,width=4,height=4,units='in')
+ggsave('./msi_rain_combos_pres.tiff',plot=msi_plots_combo,width=3.2,height=3.2,units='in')
 
 msi_comp_plusinc <- ggarrange(trials_incidence_plot,msi_plots_combo,ncol=2,widths = c(1, 2))
 ggsave('./trial_figs/output/msi_rain_combos_withinc.tiff',plot=msi_comp_plusinc,width=6,height=3.5,units='in')
 
+msi_comp_plusprevinc <- ggarrange(trials_prev_anc_plot_2levels,trials_incidence_plot,msi_plots_norain,ncol=3,widths = c(1.1,1.1,1))
+ggsave('./trial_figs/output/msi_withprev&inc.tiff',plot=msi_comp_plusprevinc,width=5.5,height=2.75,units='in')
 
 trials_incidence_plot | ((msi_plot + msi_angle_plot)/(msi_rain_plot + msi_angle_rain_plot))
 trials_incidence_plot | ((msi_plot + msi_angle_plot)/(msi_rain_plot + msi_angle_rain_plot))

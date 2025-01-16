@@ -1,5 +1,3 @@
-library(sifter)
-library(SBC)
 library('tidyverse')
 library("odin.dust")
 library("odin")
@@ -188,6 +186,12 @@ trials_prev_anc_plot_data <- create_dashboard_plots_trial(results=trials_short_i
                                                      var= 'prev_anc',
                                                      show_fits = FALSE
 )
+trials_prev_anc_plot_2levels <- create_dashboard_plots_trial_2(results=trials_short_informed_prepped,
+                                                     observed = trials_anc_data_all,
+                                                     rainfall = trial_rainfall,
+                                                     var= 'prev_anc'
+)
+ggsave('./trial_figs/output/trials_prev_anc_plot_2levels.tiff',plot=trials_prev_anc_plot_2levels,width=2,height=5,units='in')
 
 trials_prev_mg_plot <- create_dashboard_plots_trial(results=trials_short_informed_prepped,
                                                     observed = trials_mg_data_all,
@@ -258,6 +262,18 @@ trials_incidence_plot <- create_dashboard_plots_trial(results=trials_short_infor
                                                     max_value = 25,
                                                     multiplier = 1000,
                                                     rainfall_multiplier = 20)
+ggsave('./trial_figs/output/trials_incidence_plot.tiff',plot=trials_incidence_plot,width=2,height=5,units='in')
+
+trials_incidence_plot_pres <- create_dashboard_plots_trial_pres(results=trials_short_informed_prepped,
+                                                      observed = NULL,
+                                                      rainfall = trial_rainfall,
+                                                      var= 'inc05',
+                                                      title = NULL,
+                                                      max_value = 25,
+                                                      multiplier = 1000,
+                                                      rainfall_multiplier = 20)
+# ggsave('./trial_figs/output/trials_incidence_plot_pres.tiff',plot=trials_incidence_plot_pres,width=2,height=5,units='in')
+
 trials_betaa_plot <- create_dashboard_plots_trial(results=trials_short_informed_prepped,
                                                       observed = NULL,
                                                       var= 'betaa',
@@ -270,43 +286,64 @@ trials_plots <- trials_prev_pg_plot + trials_prev_mg_plot + trials_incidence_plo
 ggsave('./trial_figs/output/trials_short_fit_plots_2.tiff',plot=trials_plots,width=7,height=5,units='in')
 
 fit_panel <- trial_sites_map + trials_prev_anc_plot_data + trials_incidence_plot + plot_layout(ncol=3,widths=c(0.75,1,0.5))
+ggsave('./trials_prev_anc_plot_data.tiff',plot=trials_prev_anc_plot_data,width=10,height=10,units='cm')
+ggsave('./trials_prev_anc_plot_fits.tiff',plot=trials_prev_anc_plot,width=10,height=10,units='cm')
 ggsave('./trial_figs/output/trials_short_fit_with_map_data.tiff',plot=fit_panel,width=26,height=13,units='cm')
 fit_panel <- trial_sites_map + trials_prev_anc_plot + trials_incidence_plot + plot_layout(ncol=3,widths=c(0.75,1,0.5))
 ggsave('./trial_figs/output/trials_short_fit_with_map_withinc.tiff',plot=fit_panel,width=26,height=13,units='cm')
 
 ###Longer runs####
 windows_authenticate()
+hipercow::hipercow_init()
+hipercow::hipercow_configure('windows')
+hipercow::hipercow_provision()
+hipercow_environment_create(packages=c('dplyr','ggplot2'))
 orderly2::orderly_init()
 trials_short_informed_props
 
+names(trials_pg_data_all_list)
 
+df_trial_submit <- data.frame(name=names(trials_pg_data_all_list),
+                              prop=unlist(trials_short_informed_props),
+                              comparison_trial = c('pgsg','pgsg','pgsg','pgsg','pgmg','pgmg'))
+saveRDS(trials_pg_data_all_list,'./src/run_trial_pmcmc/trials_pg_data_all_list.RDS')
+saveRDS(trials_mg_data_all_list,'./src/run_trial_pmcmc/trials_mg_data_all_list.RDS')
+resources <- hipercow_resources(cores=32)
+long_trial_id <- task_create_bulk_expr(orderly2::orderly_run('run_trial_pmcmc',parameters=list(name=name,
+                                                                                    proposal_matrix = prop,
+                                                                                    comparison_trial = comparison_trial,
+                                                                                    length=10000)),
+                                  data=df_trial_submit,
+                                  resources=resources)
+task_status(long_trial_id$ids) #greenish_ilsamochadegu
+task_log_show(long_trial_id$ids[6])
+df_trial_submit_2 <- df_trial_submit[c(1,3),]
+long_trial_id <- task_create_bulk_expr(orderly2::orderly_run('run_trial_pmcmc',parameters=list(name=name,
+                                                                                               proposal_matrix = prop,
+                                                                                               comparison_trial = comparison_trial,
+                                                                                               length=10000)),
+                                       data=df_trial_submit,
+                                       resources=resources)
+long_trial_id_2 <- task_create_bulk_expr(orderly2::orderly_run('run_trial_pmcmc',parameters=list(name=name,
+                                                                                               proposal_matrix = prop,
+                                                                                               comparison_trial = comparison_trial,
+                                                                                               length=10000,
+                                                                                               seed=209)),
+                                       data=df_trial_submit_2,
+                                       resources=resources)
+task_status(long_trial_id_2$ids)
+task_log_show(long_trial_id_2$ids[2])
 
-trials_long_informed_run_1 <- obj_sim_trial$enqueue_bulk(1:6,function(x,data_raw_pg,data_raw_mg,annual_prev,country,comparisons){
-  sifter::run_pmcmc(data_raw_pg=data_raw_pg[[x]],
-                    data_raw_mg=data_raw_mg[[x]],
-                    init_EIR = 100,
-                    n_particles=200,
-                    proposal_matrix = matrix(0.05),
-                    target_prev = annual_prev[[country[[x]]]],
-                    target_prev_group='u5',
-                    max_param=125,
-                    prop_treated = 0.4,
-                    n_steps = 1000,
-                    n_threads = 10,
-                    n_chains = 1,
-                    n_workers = 1,
-                    state_check = 0,## Run equilibrium checks
-                    seasonality_on = FALSE,  ## state_check = TRUE runs a deterministic seasonal model before running the stochastic model to get more realistic immunity levels
-                    seasonality_check = FALSE,##If TRUE, saves values of seasonality equilibrium
-                    seed = 1L,
-                    start_pf_time = 30*12,
-                    particle_tune = FALSE,
-                    comparison = comparisons[[country[[x]]]],
-                    initial = 'informed',
-                    check_flexibility=TRUE
-  )
-},data_raw_pg=trials_pg_data_all_list,data_raw_mg=trials_mg_data_all_list,annual_prev=targetprevs_trials,country=country_trial,comparisons = comparisons_trials)
-
+df_trial_submit_3 <- df_trial_submit[c(1),]
+long_trial_id_3 <- task_create_bulk_expr(orderly2::orderly_run('run_trial_pmcmc',parameters=list(name=name,
+                                                                                                 proposal_matrix = prop,
+                                                                                                 comparison_trial = comparison_trial,
+                                                                                                 length=10000,
+                                                                                                 seed=309)),
+                                         data=df_trial_submit_3,
+                                         resources=resources)
+task_status(long_trial_id_3$ids) #'quasihonourable_abyssiniangroundhornbill'
+# task_cancel(long_trial_id_3$ids)
 
 gambia <- trials_short_informed_prepped[[2]]$summary %>%
   filter(country=='Gambia'&measure=='inc05')

@@ -14,4 +14,9 @@ odin
 dust
 odin.dust
 mcstate
+orderly2
+readxl
+binom
+ggplot2
 github::jt-hicks/mamasante
+github::mrc-ide/umbrella

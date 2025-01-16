@@ -1,4 +1,4 @@
-create_dashboard_plots_trial <- function(results,
+create_dashboard_plots_trial_pres <- function(results,
                                          observed,
                                          rainfall=NULL,
                                          prev_all=NULL,
@@ -96,6 +96,7 @@ create_dashboard_plots_trial <- function(results,
   results_sample <- shift_trial_dates(results_sample,single_site)
 
   results_summary$country <- factor(results_summary$country,levels=c('Gambia','Mali','Burkina Faso','Ghana','Malawi','Kenya'))
+  results_summary$code <- factor(results_summary$country,levels=c('Gambia','Mali','Burkina Faso','Ghana','Malawi','Kenya'))
   results_sample$country <- factor(results_sample$country,levels=c('Gambia','Mali','Burkina Faso','Ghana','Malawi','Kenya'))
   observed_cis$country <- factor(observed_cis$country,levels=c('Gambia','Mali','Burkina Faso','Ghana','Malawi','Kenya'))
   y_axis_label <- NULL
@@ -106,7 +107,7 @@ create_dashboard_plots_trial <- function(results,
     y_axis_label <- 'Daily clinical cases per 1000 children under 5 years old'
   }
 
-  plot_base <- ggplot()+
+  plot_base <- ggplot(data=results_sample)+
     scale_y_continuous(expand=c(0,0))
 
   if(!is.null(rainfall)){
@@ -117,7 +118,7 @@ create_dashboard_plots_trial <- function(results,
 
     plot_base <- plot_base +
       geom_col(data=rainfall,aes(x=date_aligned,y=rainfall_rel),alpha = 1,fill = 'darkgrey',just=0)+
-      # scale_y_continuous(expand=c(0,0),sec.axis = sec_axis(~ . /(rainfall_multiplier*10/max(rainfall$rainfall)), name = "Monthly rainfall (cm)"))+
+      scale_y_continuous(expand=c(0,0),sec.axis = sec_axis(~ . /(rainfall_multiplier*10/max(rainfall$rainfall)), name = "Monthly rainfall (cm)"))+
       theme(strip.placement = "outside")
 
   }
@@ -132,7 +133,6 @@ create_dashboard_plots_trial <- function(results,
     geom_errorbar(data=observed_cis,aes(x=as.Date(date_aligned),ymin=lower*multiplier,ymax=upper*multiplier,color=country,group=country),width = 0,position=position_dodge(width=10),linewidth=0.5)+
     scale_color_manual(values=colors)+
     scale_x_date(date_labels = "%b", date_breaks = '3 months')+
-    scale_y_continuous(expand=c(0,0),breaks = c(0,5,10,15,20))+
     coord_cartesian(ylim = c(0,max_value),
                     xlim = range(results_summary$date_aligned))+
     labs(title = title,
@@ -144,16 +144,18 @@ create_dashboard_plots_trial <- function(results,
           axis.ticks.x = element_line(linewidth = 0.5),
           axis.ticks.length = unit(3, "pt"),
           legend.position = 'none',
-          panel.spacing.y = unit(0, "mm")
+          panel.spacing.y = unit(3, "mm")
     )
-  if(var!='prev_anc'){
-    plot <- plot +
-      theme(strip.text.x = element_blank())
-  }
+  grid <- data.frame(code = factor(unname(country),levels=c('Gambia','Mali','Burkina Faso','Ghana','Malawi','Kenya')),
+                     name = unname(country_labels),
+                     row = c(1,1,1,1,2,2),
+                     col = c(3,1,4,2,2,3))
+  print(grid)
   if(!single_site){
     plot <- plot +
       geom_vline(data=smc_times,aes(xintercept=smc_times),linetype='dashed',color='black',linewidth=0.5)+
-      facet_grid(country~measure,scales=facet_scales,labeller = labeller(country = country_labels, measure=measure_labels))
+      geofacet::facet_geo(~ country, grid = grid%>%select(row,col,code,name),label='name')
+
   }
   return(plot)
 }
