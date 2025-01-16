@@ -19,6 +19,33 @@ addCIs<-function(df,Ys,Ns){
   df[which(!is.na(Ns)),]$lower<-CIs$lower
   return(df)
 }
+## fn to return prevalence from log_odds
+get_prev_from_log_odds<-function(log_odds){
+  return(exp(log_odds)/(1+exp(log_odds)))
+}
+
+## fn to return odds from prevalence
+get_odds_from_prev<-function(prev){
+  return(prev/(1-prev))
+}
+
+addCIs_anc<-function(df,Ys.cs,Ns.cs,Ys.anc,Ns.anc){
+  df$mean.cs<-NA
+  df$upper.cs<-NA
+  df$lower.cs<-NA
+  CIs.cs<-binom.confint(Ys.cs,Ns.cs,method="exact")
+  df$mean.cs[Ns.cs>0]<-CIs.cs$mean[Ns.cs>0]
+  df$upper.cs[Ns.cs>0]<-CIs.cs$upper[Ns.cs>0]
+  df$lower.cs[Ns.cs>0]<-CIs.cs$lower[Ns.cs>0]
+  df$mean.anc<-NA
+  df$upper.anc<-NA
+  df$lower.anc<-NA
+  CIs.anc<-binom.confint(Ys.anc,Ns.anc,method="exact")
+  df$mean.anc[Ns.anc>0]<-CIs.anc$mean[Ns.anc>0]
+  df$upper.anc[Ns.anc>0]<-CIs.anc$upper[Ns.anc>0]
+  df$lower.anc[Ns.anc>0]<-CIs.anc$lower[Ns.anc>0]
+  return(df)
+}
 ################## generate the data ######################
 # generate random walk of betaa (recursive fn)
 genRandWalk <- function(x,vol,randWalk) {
