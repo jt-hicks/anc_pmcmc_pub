@@ -35,3 +35,17 @@ true_sim_demo_7.tiff
 true_sim_demo_wide.tiff
 true_sim_demo_wide_1.tiff
 true_sim_demo_wide_7.tiff
+# ---VVV--- added by orderly ---VVV----------------
+# Don't manually edit content between these markers
+.outpack
+orderly_envir.yml
+draft
+archive
+# ---^^^--- added by orderly ---^^^----------------
+trials_prev_anc_plot_fits.tiff
+msi_rain_combos_pres.tiff
+orderly_config.yml
+sim_seasonal_run_result.rds
+trials_incidence_plot_pres.tiff
+trials_prev_anc_plot_data.tiff
+figures
