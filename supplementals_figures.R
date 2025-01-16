@@ -93,8 +93,7 @@ task_status(short_misp_control_id$ids)#semimonarchical_dipper
 
 short_misp_control_diag_id <- orderly2::orderly_run('run_diagnostics_misp',parameters=list(length=1000,n_datasets=16))
 
-
-short_diag_id <- orderly2::orderly_run('run_diagnostics',parameters=list(length=1000,n_datasets=32))
+short_misp_figures_id <- orderly2::orderly_run('run_seasonal_figures_misp')
 
 
 ##Data for vignette
