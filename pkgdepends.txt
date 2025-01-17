@@ -20,3 +20,4 @@ binom
 ggplot2
 github::jt-hicks/mamasante
 github::mrc-ide/umbrella
+R2OpenBUGS
